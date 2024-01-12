@@ -12,5 +12,7 @@
             "dest": "/app.js"
         }
     ],
-    "script":"npm install mongoose mongodb -g"
+    "build": {
+        "script":"npm install mongoose mongodb -g"
+    }
 }
