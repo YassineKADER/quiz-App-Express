@@ -1,14 +1,31 @@
-var createError = require('http-errors');
-var express = require('express');
-var path = require('path');
-var logger = require('morgan');
+const createError = require('http-errors');
+const express = require('express');
+const path = require('path');
+const logger = require('morgan');
+const cors = require('cors');
+const mongoose = require('mongoose');
+const swagger = require('./swagger');
+
 require('dotenv').config();
 
 
-var indexRouter = require('./routes/index');
-var usersRouter = require('./routes/users');
+const indexRouter = require('./routes/index');
+const usersRouter = require('./routes/users');
 
-var app = express();
+
+
+const app = express();
+
+(
+  async () => {
+    try {
+      await mongoose.connect(process.env.MONGO_URI);
+      console.log('connected to database');
+    } catch (error) {
+      console.log(error);
+    }
+  }
+)()
 
 app.use(logger('dev'));
 app.use(express.json());
@@ -16,7 +33,8 @@ app.use(express.urlencoded({ extended: false }));
 // app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/', indexRouter);
-app.use('/users', usersRouter);
+app.use('/api/user', usersRouter);
+app.use('/api-docs', swagger.serve, swagger.setup);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
