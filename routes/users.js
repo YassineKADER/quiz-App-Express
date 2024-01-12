@@ -230,4 +230,132 @@ router.post('/student/login', async (req, res) => {
     }
 });
 
+
+
+/**
+ * @swagger
+ * tags:
+ *   name: User
+ *   description: User information endpoints
+ */
+
+/**
+ * @swagger
+ * /api/user/info:
+ *   get:
+ *     summary: Get user information
+ *     tags: [User]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Successful retrieval of user information
+ *         content:
+ *           application/json:
+ *             example:
+ *               id: 60b8f2e2e9e7d0b3a4a3d9c8
+ *               name: John Doe
+ *               email: john.doe@example.com
+ *               role: teacher
+ *               username: john.doe
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       500:
+ *         description: Internal Server Error
+ */
+
+router.get('/info', async (req, res) => {
+  try {
+      const token = req.headers.authorization.split(' ')[1];
+
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+      let user;
+      if (decoded.role === 'teacher') {
+          user = await Teacher.findById(decoded.id);
+      } else if (decoded.role === 'student') {
+          user = await Student.findById(decoded.id);
+      }
+
+      if (!user) {
+          return res.status(404).json({ error: 'User not found' });
+      }
+
+      const userInfo = {
+          id: user._id,
+          name: user.full_name,
+          email: user.email,
+          role: decoded.role,
+          username: user.username,
+      };
+
+      res.json(userInfo);
+  } catch (error) {
+      if (error.name === 'JsonWebTokenError') {
+          return res.status(401).json({ error: 'Invalid token' });
+      }
+      console.error(error);
+      res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/user/update:
+ *   patch:
+ *     summary: Update user information
+ *     tags: [User]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               username:
+ *                 type: string
+ *               full_name:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Successful update of user information
+ *         content:
+ *           application/json:
+ *             example:
+ *               message: User information updated successfully
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Internal Server Error
+ */
+
+router.patch('/update', async (req, res) => {
+  try {
+      const token = req.headers.authorization.split(' ')[1];
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      let user;
+      if (decoded.role === 'teacher') {
+          user = await Teacher.findByIdAndUpdate(decoded.id, req.body, { new: true });
+      } else if (decoded.role === 'student') {
+          user = await Student.findByIdAndUpdate(decoded.id, req.body, { new: true });
+      }
+      if (!user) {
+          return res.status(404).json({ error: 'User not found' });
+      }
+      res.json({ message: 'User information updated successfully' });
+  } catch (error) {
+      if (error.name === 'JsonWebTokenError') {
+          return res.status(401).json({ error: 'Invalid token' });
+      }
+      console.error(error);
+      res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
 module.exports = router;
