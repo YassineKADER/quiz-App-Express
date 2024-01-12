@@ -16,16 +16,16 @@ const usersRouter = require('./routes/users');
 
 const app = express();
 
-(
-  async () => {
-    try {
-      await mongoose.connect(process.env.MONGO_URI);
-      console.log('connected to database');
-    } catch (error) {
-      console.log(error);
-    }
-  }
-)()
+// (
+//   async () => {
+//     try {
+//       await mongoose.connect(process.env.MONGO_URI);
+//       console.log('connected to database');
+//     } catch (error) {
+//       console.log(error);
+//     }
+//   }
+// )()
 
 app.use(logger('dev'));
 app.use(express.json());
