@@ -5,12 +5,14 @@ const logger = require('morgan');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const swagger = require('./swagger');
+const auth = require('./middleware/auth')
 
 require('dotenv').config();
 
 
 const indexRouter = require('./routes/index');
 const usersRouter = require('./routes/users');
+const classesRouter = require('./routes/classes');
 
 
 
@@ -35,6 +37,7 @@ app.use(cors())
 
 app.use('/', indexRouter);
 app.use('/api/user', usersRouter);
+app.use('/api/classes', auth, classesRouter)
 app.use('/api-docs', swagger.serve, swagger.setup);
 
 // catch 404 and forward to error handler

@@ -41,7 +41,7 @@ const quizSchema = new mongoose.Schema({
 const classSchema = new mongoose.Schema({
     class_name: { type: String, required: true },
     teacher_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Teacher', required: true },
-    students: [studentSchema],
+    students: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Student'}],
     quizzes: [quizSchema],
 });
 
