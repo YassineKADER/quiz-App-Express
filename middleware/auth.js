@@ -27,7 +27,7 @@ const authenticateToken = async (req, res, next) => {
       return res.status(401).json({ error: 'Invalid token' });
     }
     console.error(error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    res.status(401).json({ error: 'Token Expired or Invalid' });
   }
 };
 
