@@ -270,7 +270,6 @@ router.post('/join', async (req, res) => {
   }
 });
 
-
 /**
  * @swagger
  * /api/classes/{classId}/students:
@@ -339,5 +338,329 @@ router.get('/:classId/students', async (req, res) => {
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });
+
+
+/**
+ * @swagger
+ * tags:
+ *   name: Quizzes
+ *   description: Quiz-related endpoints
+ */
+
+/**
+ * @swagger
+ * /api/classes/{classId}/quizzes:
+ *   post:
+ *     summary: Create a new quiz in a class (for teachers)
+ *     tags: [Quizzes]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: classId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The ID of the class
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               quiz_name:
+ *                 type: string
+ *               start_date:
+ *                 type: string
+ *                 format: date-time
+ *               duration:
+ *                 type: number
+ *               questions:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     question_text:
+ *                       type: string
+ *                     options:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           option_text:
+ *                             type: string
+ *                           is_correct:
+ *                             type: boolean
+ *     responses:
+ *       200:
+ *         description: Successful creation of a new quiz
+ *         content:
+ *           application/json:
+ *             example:
+ *               message: Quiz created successfully
+ *               quiz: { quiz_name: "Math Quiz", class_id: "classId", start_date: "2024-01-20T12:00:00Z", duration: 60, questions: [...] }
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       403:
+ *         description: Forbidden - User is not a teacher
+ *       404:
+ *         description: Class not found
+ *       500:
+ *         description: Internal Server Error
+ */
+
+router.post('/:classId/quizzes', async (req, res) => {
+  try {
+    const decoded = req.user;
+
+    if (decoded.role !== 'teacher') {
+      return res.status(403).json({ error: 'User is not a teacher' });
+    }
+
+    const { classId } = req.params;
+    const { quiz_name, start_date, duration, questions } = req.body;
+
+    const existingClass = await Class.findById(classId);
+
+    if (!existingClass) {
+      return res.status(404).json({ error: 'Class not found' });
+    }
+
+    const isTeacherOfClass = existingClass.teacher_id.equals(decoded.id);
+
+    if (!isTeacherOfClass) {
+      return res.status(403).json({ error: 'User is not the teacher of this class' });
+    }
+
+    // Validate start_date is in the future
+    const now = new Date();
+    const quizStartDate = new Date(start_date);
+
+    if (quizStartDate <= now) {
+      return res.status(400).json({ error: 'Quiz start date must be in the future' });
+    }
+
+    const newQuiz = new Quiz({
+      quiz_name,
+      class_id: classId,
+      start_date,
+      duration,
+      questions,
+    });
+
+    await newQuiz.save();
+
+    existingClass.quizzes.push(newQuiz._id);
+    await existingClass.save();
+
+    res.json({ message: 'Quiz created successfully', quiz: newQuiz });
+  } catch (error) {
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    console.error(error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/classes/{classId}/quizzes/{quizId}:
+ *   patch:
+ *     summary: Update a quiz in a class (for teachers)
+ *     tags: [Quizzes]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: classId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The ID of the class
+ *       - in: path
+ *         name: quizId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The ID of the quiz
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               quiz_name:
+ *                 type: string
+ *               start_date:
+ *                 type: string
+ *                 format: date-time
+ *               duration:
+ *                 type: number
+ *               questions:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     question_text:
+ *                       type: string
+ *                     options:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           option_text:
+ *                             type: string
+ *                           is_correct:
+ *                             type: boolean
+ *     responses:
+ *       200:
+ *         description: Successful update of a quiz
+ *         content:
+ *           application/json:
+ *             example:
+ *               message: Quiz updated successfully
+ *               quiz: { quiz_name: "Updated Math Quiz", class_id: "classId", start_date: "2024-01-20T12:00:00Z", duration: 60, questions: [...] }
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       403:
+ *         description: Forbidden - User is not a teacher
+ *       404:
+ *         description: Class or quiz not found
+ *       500:
+ *         description: Internal Server Error
+ */
+
+router.patch('/:classId/quizzes/:quizId', async (req, res) => {
+  try {
+    const decoded = req.user;
+
+    if (decoded.role !== 'teacher') {
+      return res.status(403).json({ error: 'User is not a teacher' });
+    }
+
+    const { classId, quizId } = req.params;
+    const { quiz_name, start_date, duration, questions } = req.body;
+
+    const existingClass = await Class.findById(classId);
+
+    if (!existingClass) {
+      return res.status(404).json({ error: 'Class not found' });
+    }
+
+    const isTeacherOfClass = existingClass.teacher_id.equals(decoded.id);
+
+    if (!isTeacherOfClass) {
+      return res.status(403).json({ error: 'User is not the teacher of this class' });
+    }
+
+    const existingQuiz = await Quiz.findById(quizId);
+
+    if (!existingQuiz) {
+      return res.status(404).json({ error: 'Quiz not found' });
+    }
+
+    // Validate start_date is in the future
+    const now = new Date();
+    const quizStartDate = new Date(start_date);
+
+    if (quizStartDate <= now) {
+      return res.status(400).json({ error: 'Quiz start date must be in the future' });
+    }
+
+    // Update quiz details
+    existingQuiz.quiz_name = quiz_name;
+    existingQuiz.start_date = start_date;
+    existingQuiz.duration = duration;
+    existingQuiz.questions = questions;
+
+    await existingQuiz.save();
+
+    res.json({ message: 'Quiz updated successfully', quiz: existingQuiz });
+  } catch (error) {
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    console.error(error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/classes/{classId}/quizzes/{quizId}:
+ *   get:
+ *     summary: Get details of a quiz in a class
+ *     tags: [Quizzes]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: classId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The ID of the class
+ *       - in: path
+ *         name: quizId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The ID of the quiz
+ *     responses:
+ *       200:
+ *         description: Successful retrieval of quiz details
+ *         content:
+ *           application/json:
+ *             example:
+ *               quiz: { quiz_name: "Math Quiz", class_id: "classId", start_date: "2024-01-20T12:00:00Z", duration: 60, questions: [...] }
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       404:
+ *         description: Class or quiz not found
+ *       500:
+ *         description: Internal Server Error
+ */
+
+router.get('/:classId/quizzes/:quizId', async (req, res) => {
+  try {
+    const decoded = req.user;
+
+    if (!decoded || (decoded.role !== 'teacher' && decoded.role !== 'student')) {
+      return res.status(403).json({ error: 'Forbidden - Only authenticated users can access this endpoint' });
+    }
+
+    const { classId, quizId } = req.params;
+
+    const myClass = await Class.findById(classId);
+
+    if (!myClass) {
+      return res.status(404).json({ error: 'Class not found' });
+    }
+
+    const isTeacherOrStudentInClass = myClass.teacher_id.equals(decoded.id) || myClass.students.includes(decoded.id);
+
+    if (!isTeacherOrStudentInClass) {
+      return res.status(403).json({ error: 'User is not authorized to access this quiz' });
+    }
+
+    const quiz = await Quiz.findById(quizId);
+
+    if (!quiz) {
+      return res.status(404).json({ error: 'Quiz not found' });
+    }
+
+    res.json({ quiz });
+  } catch (error) {
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    console.error(error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
 
 module.exports = router;
