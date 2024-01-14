@@ -48,6 +48,15 @@ router.get('/', async (req, res) => {
     //   classes = await Class.find({ _id: { $in: user.classes } });
        classes = await Class.find({ 'students': { $in: user.id}});
     }
+    classes = classes.map(async cls => {
+      const classObject = cls.toObject();
+      const teacher = await Teacher.findById(cls.teacher_id);
+      const teacherobj = teacher.toObject();
+      return {
+        ...classObject,
+        teacher: teacherobj
+      };
+    });
 
     res.json({ classes });
   } catch (error) {
