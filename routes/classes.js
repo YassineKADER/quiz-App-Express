@@ -1,8 +1,8 @@
 // Import your models
-const { Class, Teacher, Student } = require('../models/models');
+const { Class, Teacher, Student } = require("../models/models");
 
 // Express Router
-const express = require('express');
+const express = require("express");
 const router = express.Router();
 
 /**
@@ -33,29 +33,40 @@ const router = express.Router();
  *         description: Internal Server Error
  */
 
-router.get('/', async (req, res) => {
+router.get("/", async (req, res) => {
   try {
     const user = req.user;
 
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ error: "User not found" });
     }
 
     let classes;
-    if (user.role === 'teacher') {
+    if (user.role === "teacher") {
       classes = await Class.find({ teacher_id: user.id });
-    } else if (user.role === 'student') {
-    //   classes = await Class.find({ _id: { $in: user.classes } });
-       classes = await Class.find({ 'students': { $in: user.id}});
+    } else if (user.role === "student") {
+      //   classes = await Class.find({ _id: { $in: user.classes } });
+      classes = await Class.find({ students: { $in: user.id } });
     }
-
+    classes = await Promise.all(
+      classes.map(async (cls) => {
+        const classObject = cls.toObject();
+        const teacher = await Teacher.findById(cls.teacher_id);
+        const teacherobj = teacher.toObject();
+        delete teacherobj["password"];
+        return {
+          classObject,
+          teacher: teacherobj,
+        };
+      })
+    );
     res.json({ classes });
   } catch (error) {
-    if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({ error: 'Invalid token' });
+    if (error.name === "JsonWebTokenError") {
+      return res.status(401).json({ error: "Invalid token" });
     }
     console.error(error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
@@ -92,13 +103,13 @@ router.get('/', async (req, res) => {
  *         description: Internal Server Error
  */
 
-router.post('/create', async (req, res) => {
+router.post("/create", async (req, res) => {
   try {
     const decoded = req.user;
     console.log(decoded);
 
-    if (decoded.role !== 'teacher') {
-      return res.status(403).json({ error: 'User is not a teacher' });
+    if (decoded.role !== "teacher") {
+      return res.status(403).json({ error: "User is not a teacher" });
     }
 
     const { class_name } = req.body;
@@ -110,13 +121,13 @@ router.post('/create', async (req, res) => {
 
     await newClass.save();
 
-    res.json({ message: 'Class created successfully', class: newClass });
+    res.json({ message: "Class created successfully", class: newClass });
   } catch (error) {
-    if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({ error: 'Invalid token' });
+    if (error.name === "JsonWebTokenError") {
+      return res.status(401).json({ error: "Invalid token" });
     }
     console.error(error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
@@ -161,12 +172,12 @@ router.post('/create', async (req, res) => {
  *         description: Internal Server Error
  */
 
-router.post('/:classId/add-student', async (req, res) => {
+router.post("/:classId/add-student", async (req, res) => {
   try {
     const decoded = req.user;
 
-    if (decoded.role !== 'teacher') {
-      return res.status(403).json({ error: 'User is not a teacher' });
+    if (decoded.role !== "teacher") {
+      return res.status(403).json({ error: "User is not a teacher" });
     }
 
     const { classId } = req.params;
@@ -175,31 +186,33 @@ router.post('/:classId/add-student', async (req, res) => {
     const existingClass = await Class.findById(classId);
 
     if (!existingClass) {
-      return res.status(404).json({ error: 'Class not found' });
+      return res.status(404).json({ error: "Class not found" });
     }
 
     const isTeacherOfClass = existingClass.teacher_id.equals(decoded.id);
 
     if (!isTeacherOfClass) {
-      return res.status(403).json({ error: 'User is not the teacher of this class' });
+      return res
+        .status(403)
+        .json({ error: "User is not the teacher of this class" });
     }
 
     const student = await Student.findById(studentId);
 
     if (!student) {
-      return res.status(404).json({ error: 'Student not found' });
+      return res.status(404).json({ error: "Student not found" });
     }
 
     existingClass.students.push(student._id);
     await existingClass.save();
 
-    res.json({ message: 'Student added to the class successfully' });
+    res.json({ message: "Student added to the class successfully" });
   } catch (error) {
-    if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({ error: 'Invalid token' });
+    if (error.name === "JsonWebTokenError") {
+      return res.status(401).json({ error: "Invalid token" });
     }
     console.error(error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
@@ -237,12 +250,12 @@ router.post('/:classId/add-student', async (req, res) => {
  *         description: Internal Server Error
  */
 
-router.post('/join', async (req, res) => {
+router.post("/join", async (req, res) => {
   try {
     const decoded = req.user;
 
-    if (decoded.role !== 'student') {
-      return res.status(403).json({ error: 'User is not a student' });
+    if (decoded.role !== "student") {
+      return res.status(403).json({ error: "User is not a student" });
     }
 
     const { classId } = req.body;
@@ -252,21 +265,28 @@ router.post('/join', async (req, res) => {
     const student = await Student.findById(decoded.id);
 
     if (!existingClass) {
-      return res.status(404).json({ error: 'Class not found' });
+      return res.status(404).json({ error: "Class not found" });
     }
 
-    existingClass.students.push(student._id);
-    await existingClass.save();
+    if (!existingClass.students.includes(student._id)) {
+      existingClass.students.push(student._id);
+      await existingClass.save();
 
-    await Student.findByIdAndUpdate(decoded.id, { $addToSet: { classes: classId } }, { new: true });
-
-    res.json({ message: 'Student joined the class successfully' });
+      await Student.findByIdAndUpdate(
+        decoded.id,
+        { $addToSet: { classes: classId } },
+        { new: true }
+      );
+      res.json({ message: "Student joined the class successfully" });
+    } else {
+      res.json({ message: "Student already in the class" });
+    }
   } catch (error) {
-    if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({ error: 'Invalid token' });
+    if (error.name === "JsonWebTokenError") {
+      return res.status(401).json({ error: "Invalid token" });
     }
     console.error(error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
@@ -303,42 +323,51 @@ router.post('/join', async (req, res) => {
  *       500:
  *         description: Internal Server Error
  */
-router.get('/:classId/students', async (req, res) => {
-    try {
-        const decoded = req.user;
+router.get("/:classId/students", async (req, res) => {
+  try {
+    const decoded = req.user;
 
-        // Ensure the user is authenticated and has the necessary role
-        if (!decoded || (decoded.role !== 'teacher' && decoded.role !== 'student')) {
-            return res.status(403).json({ error: 'Forbidden - Only authenticated users can access this endpoint' });
-        }
-
-        const classId = req.params.classId;
-
-        const myClass = await Class.findById(classId);
-
-        if (!myClass) {
-            return res.status(404).json({ error: 'Class not found' });
-        }
-
-        const students = await myClass.students.map(async (studentId) => {
-            const student = await Student.findById(studentId);
-            return {
-                id: student._id,
-                name: student.full_name,
-                email: student.email,
-                username: student.username
-            };
+    // Ensure the user is authenticated and has the necessary role
+    if (
+      !decoded ||
+      (decoded.role !== "teacher" && decoded.role !== "student")
+    ) {
+      return res
+        .status(403)
+        .json({
+          error:
+            "Forbidden - Only authenticated users can access this endpoint",
         });
-        res.json({ students });
-    } catch (error) {
-        if (error.name === 'JsonWebTokenError') {
-            return res.status(401).json({ error: 'Invalid token' });
-        }
-        console.error(error);
-        res.status(500).json({ error: 'Internal Server Error' });
     }
-});
 
+    const classId = req.params.classId;
+
+    const myClass = await Class.findById(classId);
+
+    if (!myClass) {
+      return res.status(404).json({ error: "Class not found" });
+    }
+
+    const students = await Promise.all(
+      myClass.students.map(async (studentId) => {
+        const student = await Student.findById(studentId);
+        return {
+          id: student._id,
+          name: student.full_name,
+          email: student.email,
+          username: student.username,
+        };
+      })
+    );
+    res.json({ students });
+  } catch (error) {
+    if (error.name === "JsonWebTokenError") {
+      return res.status(401).json({ error: "Invalid token" });
+    }
+    console.error(error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
 
 /**
  * @swagger
@@ -410,12 +439,12 @@ router.get('/:classId/students', async (req, res) => {
  *         description: Internal Server Error
  */
 
-router.post('/:classId/quizzes', async (req, res) => {
+router.post("/:classId/quizzes", async (req, res) => {
   try {
     const decoded = req.user;
 
-    if (decoded.role !== 'teacher') {
-      return res.status(403).json({ error: 'User is not a teacher' });
+    if (decoded.role !== "teacher") {
+      return res.status(403).json({ error: "User is not a teacher" });
     }
 
     const { classId } = req.params;
@@ -424,13 +453,15 @@ router.post('/:classId/quizzes', async (req, res) => {
     const existingClass = await Class.findById(classId);
 
     if (!existingClass) {
-      return res.status(404).json({ error: 'Class not found' });
+      return res.status(404).json({ error: "Class not found" });
     }
 
     const isTeacherOfClass = existingClass.teacher_id.equals(decoded.id);
 
     if (!isTeacherOfClass) {
-      return res.status(403).json({ error: 'User is not the teacher of this class' });
+      return res
+        .status(403)
+        .json({ error: "User is not the teacher of this class" });
     }
 
     // Validate start_date is in the future
@@ -438,7 +469,9 @@ router.post('/:classId/quizzes', async (req, res) => {
     const quizStartDate = new Date(start_date);
 
     if (quizStartDate <= now) {
-      return res.status(400).json({ error: 'Quiz start date must be in the future' });
+      return res
+        .status(400)
+        .json({ error: "Quiz start date must be in the future" });
     }
 
     const newQuiz = new Quiz({
@@ -454,13 +487,13 @@ router.post('/:classId/quizzes', async (req, res) => {
     existingClass.quizzes.push(newQuiz._id);
     await existingClass.save();
 
-    res.json({ message: 'Quiz created successfully', quiz: newQuiz });
+    res.json({ message: "Quiz created successfully", quiz: newQuiz });
   } catch (error) {
-    if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({ error: 'Invalid token' });
+    if (error.name === "JsonWebTokenError") {
+      return res.status(401).json({ error: "Invalid token" });
     }
     console.error(error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
@@ -533,12 +566,12 @@ router.post('/:classId/quizzes', async (req, res) => {
  *         description: Internal Server Error
  */
 
-router.patch('/:classId/quizzes/:quizId', async (req, res) => {
+router.patch("/:classId/quizzes/:quizId", async (req, res) => {
   try {
     const decoded = req.user;
 
-    if (decoded.role !== 'teacher') {
-      return res.status(403).json({ error: 'User is not a teacher' });
+    if (decoded.role !== "teacher") {
+      return res.status(403).json({ error: "User is not a teacher" });
     }
 
     const { classId, quizId } = req.params;
@@ -547,19 +580,21 @@ router.patch('/:classId/quizzes/:quizId', async (req, res) => {
     const existingClass = await Class.findById(classId);
 
     if (!existingClass) {
-      return res.status(404).json({ error: 'Class not found' });
+      return res.status(404).json({ error: "Class not found" });
     }
 
     const isTeacherOfClass = existingClass.teacher_id.equals(decoded.id);
 
     if (!isTeacherOfClass) {
-      return res.status(403).json({ error: 'User is not the teacher of this class' });
+      return res
+        .status(403)
+        .json({ error: "User is not the teacher of this class" });
     }
 
     const existingQuiz = await Quiz.findById(quizId);
 
     if (!existingQuiz) {
-      return res.status(404).json({ error: 'Quiz not found' });
+      return res.status(404).json({ error: "Quiz not found" });
     }
 
     // Validate start_date is in the future
@@ -567,7 +602,9 @@ router.patch('/:classId/quizzes/:quizId', async (req, res) => {
     const quizStartDate = new Date(start_date);
 
     if (quizStartDate <= now) {
-      return res.status(400).json({ error: 'Quiz start date must be in the future' });
+      return res
+        .status(400)
+        .json({ error: "Quiz start date must be in the future" });
     }
 
     // Update quiz details
@@ -578,13 +615,13 @@ router.patch('/:classId/quizzes/:quizId', async (req, res) => {
 
     await existingQuiz.save();
 
-    res.json({ message: 'Quiz updated successfully', quiz: existingQuiz });
+    res.json({ message: "Quiz updated successfully", quiz: existingQuiz });
   } catch (error) {
-    if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({ error: 'Invalid token' });
+    if (error.name === "JsonWebTokenError") {
+      return res.status(401).json({ error: "Invalid token" });
     }
     console.error(error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
@@ -624,12 +661,20 @@ router.patch('/:classId/quizzes/:quizId', async (req, res) => {
  *         description: Internal Server Error
  */
 
-router.get('/:classId/quizzes/:quizId', async (req, res) => {
+router.get("/:classId/quizzes/:quizId", async (req, res) => {
   try {
     const decoded = req.user;
 
-    if (!decoded || (decoded.role !== 'teacher' && decoded.role !== 'student')) {
-      return res.status(403).json({ error: 'Forbidden - Only authenticated users can access this endpoint' });
+    if (
+      !decoded ||
+      (decoded.role !== "teacher" && decoded.role !== "student")
+    ) {
+      return res
+        .status(403)
+        .json({
+          error:
+            "Forbidden - Only authenticated users can access this endpoint",
+        });
     }
 
     const { classId, quizId } = req.params;
@@ -637,30 +682,33 @@ router.get('/:classId/quizzes/:quizId', async (req, res) => {
     const myClass = await Class.findById(classId);
 
     if (!myClass) {
-      return res.status(404).json({ error: 'Class not found' });
+      return res.status(404).json({ error: "Class not found" });
     }
 
-    const isTeacherOrStudentInClass = myClass.teacher_id.equals(decoded.id) || myClass.students.includes(decoded.id);
+    const isTeacherOrStudentInClass =
+      myClass.teacher_id.equals(decoded.id) ||
+      myClass.students.includes(decoded.id);
 
     if (!isTeacherOrStudentInClass) {
-      return res.status(403).json({ error: 'User is not authorized to access this quiz' });
+      return res
+        .status(403)
+        .json({ error: "User is not authorized to access this quiz" });
     }
 
     const quiz = await Quiz.findById(quizId);
 
     if (!quiz) {
-      return res.status(404).json({ error: 'Quiz not found' });
+      return res.status(404).json({ error: "Quiz not found" });
     }
 
     res.json({ quiz });
   } catch (error) {
-    if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({ error: 'Invalid token' });
+    if (error.name === "JsonWebTokenError") {
+      return res.status(401).json({ error: "Invalid token" });
     }
     console.error(error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    res.status(500).json({ error: "Internal Server Error" });
   }
 });
-
 
 module.exports = router;
