@@ -267,11 +267,9 @@ router.post("/join", async (req, res) => {
     if (!existingClass) {
       return res.status(404).json({ error: "Class not found" });
     }
-
     if (!existingClass.students.includes(student._id)) {
       existingClass.students.push(student._id);
       await existingClass.save();
-
       await Student.findByIdAndUpdate(
         decoded.id,
         { $addToSet: { classes: classId } },
