@@ -715,4 +715,97 @@ router.get("/:classId/quizzes/:quizId", async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/classes/{classId}/quizzes:
+ *   get:
+ *     summary: Get a list of quizzes in a class
+ *     tags: [Quizzes]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: classId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The ID of the class
+ *     responses:
+ *       200:
+ *         description: Successful retrieval of quizzes
+ *         content:
+ *           application/json:
+ *             example:
+ *               quizzes:
+ *                 - quiz_name: "Math Quiz"
+ *                   quiz_id: "quizId1"
+ *                   start_date: "2024-01-20T12:00:00Z"
+ *                   duration: 60
+ *                 - quiz_name: "Science Quiz"
+ *                   quiz_id: "quizId2"
+ *                   start_date: "2024-01-21T14:00:00Z"
+ *                   duration: 45
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       404:
+ *         description: Class not found
+ *       500:
+ *         description: Internal Server Error
+ */
+
+router.get("/:classId/quizzes", async (req, res) => {
+  try {
+    const decoded = req.user;
+
+    if (
+      !decoded ||
+      (decoded.role !== "teacher" && decoded.role !== "student")
+    ) {
+      return res
+        .status(403)
+        .json({
+          error:
+            "Forbidden - Only authenticated users can access this endpoint",
+        });
+    }
+
+    const { classId } = req.params;
+    console.log(req.params)
+
+    const myClass = await Class.findById(classId);
+
+    if (!myClass) {
+      return res.status(404).json({ error: "Class not found" });
+    }
+
+    const isTeacherOrStudentInClass =
+      myClass.teacher_id.equals(decoded.id) ||
+      myClass.students.includes(decoded.id);
+
+    if (!isTeacherOrStudentInClass) {
+      return res
+        .status(403)
+        .json({ error: "User is not authorized to access quizzes in this class" });
+    }
+
+    const quizzes = await Quiz.find({ class_id: classId });
+    console.log(quizzes);
+
+    const formattedQuizzes = quizzes.map((quiz) => ({
+      quiz_name: quiz.quiz_name,
+      quiz_id: quiz._id,
+      start_date: quiz.start_date,
+      duration: quiz.duration,
+    }));
+
+    res.json({ quizzes: formattedQuizzes });
+  } catch (error) {
+    if (error.name === "JsonWebTokenError") {
+      return res.status(401).json({ error: "Invalid token" });
+    }
+    console.error(error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
 module.exports = router;
