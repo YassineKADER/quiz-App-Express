@@ -656,14 +656,71 @@ router.patch("/:classId/quizzes/:quizId", async (req, res) => {
  *         content:
  *           application/json:
  *             example:
- *               quiz: { quiz_name: "Math Quiz", class_id: "classId", start_date: "2024-01-20T12:00:00Z", duration: 60, questions: [...] }
+ *               quiz: 
+ *                 quiz_name: "Math Quiz"
+ *                 class_id: "classId"
+ *                 start_date: "2024-01-20T12:00:00Z"
+ *                 duration: 60
+ *                 questions: [...]
  *       401:
  *         description: Unauthorized - Invalid or missing token
+ *       403:
+ *         description: Forbidden - Only authenticated users can access this endpoint
  *       404:
  *         description: Class or quiz not found
  *       500:
  *         description: Internal Server Error
  */
+
+// router.get("/:classId/quizzes/:quizId", async (req, res) => {
+//   try {
+//     const decoded = req.user;
+
+//     if (
+//       !decoded ||
+//       (decoded.role !== "teacher" && decoded.role !== "student")
+//     ) {
+//       return res
+//         .status(403)
+//         .json({
+//           error:
+//             "Forbidden - Only authenticated users can access this endpoint",
+//         });
+//     }
+
+//     const { classId, quizId } = req.params;
+
+//     const myClass = await Class.findById(classId);
+
+//     if (!myClass) {
+//       return res.status(404).json({ error: "Class not found" });
+//     }
+
+//     const isTeacherOrStudentInClass =
+//       myClass.teacher_id.equals(decoded.id) ||
+//       myClass.students.includes(decoded.id);
+
+//     if (!isTeacherOrStudentInClass) {
+//       return res
+//         .status(403)
+//         .json({ error: "User is not authorized to access this quiz" });
+//     }
+
+//     const quiz = await Quiz.findById(quizId);
+
+//     if (!quiz) {
+//       return res.status(404).json({ error: "Quiz not found" });
+//     }
+
+//     res.json({ quiz });
+//   } catch (error) {
+//     if (error.name === "JsonWebTokenError") {
+//       return res.status(401).json({ error: "Invalid token" });
+//     }
+//     console.error(error);
+//     res.status(500).json({ error: "Internal Server Error" });
+//   }
+// });
 
 router.get("/:classId/quizzes/:quizId", async (req, res) => {
   try {
@@ -705,6 +762,21 @@ router.get("/:classId/quizzes/:quizId", async (req, res) => {
       return res.status(404).json({ error: "Quiz not found" });
     }
 
+    // If the user is a student, check if the quiz is accessible
+    if (decoded.role === "student") {
+      const now = new Date();
+      const quizStartDate = new Date(quiz.start_date);
+      const quizEndDate = new Date(quizStartDate.getTime() + quiz.duration * 60000); // Convert duration to milliseconds
+
+      if (now < quizStartDate) {
+        return res.json({ message: "Quiz has not started yet" });
+      }
+
+      if (now > quizEndDate) {
+        return res.json({ message: "Quiz has passed" });
+      }
+    }
+
     res.json({ quiz });
   } catch (error) {
     if (error.name === "JsonWebTokenError") {
@@ -714,6 +786,7 @@ router.get("/:classId/quizzes/:quizId", async (req, res) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
+
 
 /**
  * @swagger
