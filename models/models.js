@@ -31,10 +31,10 @@ const questionSchema = new mongoose.Schema({
 });
 
 const quizSchema = new mongoose.Schema({
-    quiz_name: { type: String, required: true },
-    class_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Class', required: true },
-    start_date: { type: Date, required: true },
-    duration: { type: Number, required: true },
+    quiz_name: { type: String},
+    class_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Class'},
+    start_date: { type: Date},
+    duration: { type: Number},
     questions: [questionSchema]
 });
 

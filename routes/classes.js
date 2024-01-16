@@ -106,7 +106,7 @@ router.get("/", async (req, res) => {
 router.post("/create", async (req, res) => {
   try {
     const decoded = req.user;
-    console.log(decoded);
+    // console.log(decoded);
 
     if (decoded.role !== "teacher") {
       return res.status(403).json({ error: "User is not a teacher" });
@@ -471,7 +471,7 @@ router.post("/:classId/quizzes", async (req, res) => {
         .status(400)
         .json({ error: "Quiz start date must be in the future" });
     }
-    console.log(req.body)
+    // console.log(req.body)
     const newQuiz = await new Quiz({
       quiz_name,
       class_id: classId,
@@ -486,7 +486,7 @@ router.post("/:classId/quizzes", async (req, res) => {
       await newQuiz.save();
       existingClass.quizzes.push(newQuiz._id);
       await existingClass.save();
-      console.log('Quiz saved successfully:', newQuiz);
+      // console.log('Quiz saved successfully:', newQuiz);
     } catch (error) {
       console.error('Error saving quiz:', error);
     }
