@@ -471,8 +471,8 @@ router.post("/:classId/quizzes", async (req, res) => {
         .status(400)
         .json({ error: "Quiz start date must be in the future" });
     }
-
-    const newQuiz = new Quiz({
+    console.log(req.body)
+    const newQuiz = await new Quiz({
       quiz_name,
       class_id: classId,
       start_date,
@@ -480,10 +480,16 @@ router.post("/:classId/quizzes", async (req, res) => {
       questions,
     });
 
-    await newQuiz.save();
-
-    existingClass.quizzes.push(newQuiz._id);
-    await existingClass.save();
+    // console.log(newQuiz)
+    try {
+      await newQuiz.validate(); // Validate the document
+      await newQuiz.save();
+      existingClass.quizzes.push(newQuiz._id);
+      await existingClass.save();
+      console.log('Quiz saved successfully:', newQuiz);
+    } catch (error) {
+      console.error('Error saving quiz:', error);
+    }
 
     res.json({ message: "Quiz created successfully", quiz: newQuiz });
   } catch (error) {
