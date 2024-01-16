@@ -1,5 +1,5 @@
 // Import your models
-const { Class, Teacher, Student } = require("../models/models");
+const { Class, Teacher, Student, Quiz} = require("../models/models");
 
 // Express Router
 const express = require("express");
