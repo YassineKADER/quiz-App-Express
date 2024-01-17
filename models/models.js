@@ -46,11 +46,11 @@ const classSchema = new mongoose.Schema({
 });
 
 const studentResponseSchema = new mongoose.Schema({
-    student_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', required: true },
-    quiz_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Quiz', required: true },
+    student_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Student'},
+    quiz_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Quiz'},
     responses: [
         {
-            question_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Question', required: true },
+            question_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Question'},
             selected_options: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Option' }],
         },
     ],
