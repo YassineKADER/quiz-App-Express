@@ -1162,7 +1162,7 @@ router.get("/:classId/quizzes/:quizId/results", async (req, res) => {
  * /api/classes/{classId}/quizzes/{quizId}/results/download:
  *   get:
  *     summary: Download quiz results in CSV format
- *     tags: [Quizzes]
+ *     tags: [Results]
  *     security:
  *       - BearerAuth: []
  *     parameters:
