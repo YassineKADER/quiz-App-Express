@@ -56,6 +56,13 @@ const studentResponseSchema = new mongoose.Schema({
     ],
 });
 
+const studentResultSchema = new mongoose.Schema({
+    student_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Student' },
+    quiz_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Quiz' },
+    score: { type: Number, required: true },
+    submitted_at: { type: Date, default: Date.now },
+});
+
 const Class = mongoose.model('Class', classSchema);
 const Teacher = mongoose.model('Teacher', teacherSchema);
 const Student = mongoose.model('Student', studentSchema);
@@ -63,5 +70,6 @@ const Question = mongoose.model('Question', questionSchema);
 const Quiz = mongoose.model('Quiz', quizSchema);
 const Option = mongoose.model('Option', optionSchema);
 const StudentResponse = mongoose.model('StudentResponse', studentResponseSchema);
+const StudentResult = mongoose.model('StudentResult', studentResultSchema);
 
-module.exports = { Class, Teacher, Student, Question, Quiz, Option, StudentResponse };
+module.exports = { Class, Teacher, Student, Question, Quiz, Option, StudentResponse, StudentResult};
