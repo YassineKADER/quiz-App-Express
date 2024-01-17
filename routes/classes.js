@@ -881,4 +881,101 @@ router.get("/:classId/quizzes", async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * tags:
+ *   name: Responses
+ *   description: Responses-related endpoints
+ */
+
+/**
+ * @swagger
+ * /api/classes/{classId}/quizzes/{quizId}/responses:
+ *   post:
+ *     summary: Submit responses for a quiz
+ *     tags: [Quizzes]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: classId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The ID of the class
+ *       - in: path
+ *         name: quizId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The ID of the quiz
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           example:
+ *             student_id: "studentId"
+ *             responses: [
+ *               { question_id: "questionId1", selected_options: ["optionId1", "optionId2"] },
+ *               { question_id: "questionId2", selected_options: ["optionId3"] }
+ *             ]
+ *     responses:
+ *       200:
+ *         description: Student responses stored successfully
+ *       400:
+ *         description: Bad Request - Invalid format for response
+ *       403:
+ *         description: Forbidden - Quiz has not started or has already passed
+ *       500:
+ *         description: Internal Server Error
+ */
+
+router.post("/:classId/quizzes/:quizId/responses", async (req, res) => {
+  try {
+    const decoded = req.user;
+
+    if (!decoded || decoded.role !== "student") {
+      return res.status(403).json({ error: "Forbidden - Only authenticated students can access this endpoint" });
+    }
+
+    const { classId, quizId } = req.params;
+    const { student_id, responses } = req.body;
+
+    const quiz = await Quiz.findById(quizId);
+
+    if (!quiz || new Date(quiz.start_date) > new Date() || new Date() > new Date(quiz.end_date)) {
+      return res.status(403).json({ error: "Forbidden - Quiz has not started or has already passed" });
+    }
+
+    const allResponses = [];
+
+    for (const response of responses) {
+      const { question_id, selected_options } = response;
+
+      if (!question_id || !selected_options || !Array.isArray(selected_options)) {
+        return res.status(400).json({ error: "Invalid format for response" });
+      }
+
+      allResponses.push({
+        question_id,
+        selected_options,
+      });
+    }
+
+    const studentResponse = new StudentResponse({
+      student_id,
+      quiz_id: quizId,
+      responses: allResponses,
+    });
+
+    await studentResponse.save();
+
+    res.json({ message: "Student responses stored successfully" });
+  } catch (error) {
+    // Handle errors
+    console.error(error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
 module.exports = router;
