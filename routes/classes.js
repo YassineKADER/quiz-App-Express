@@ -766,14 +766,14 @@ router.get("/:classId/quizzes/:quizId", async (req, res) => {
       const now = new Date();
       const quizStartDate = new Date(quiz.start_date);
       const quizEndDate = new Date(quizStartDate.getTime() + quiz.duration * 60000); // Convert duration to milliseconds
+      //for debugging puposes
+      // if (now < quizStartDate) {
+      //   return res.json({ message: "Quiz has not started yet" });
+      // }
 
-      if (now < quizStartDate) {
-        return res.json({ message: "Quiz has not started yet" });
-      }
-
-      if (now > quizEndDate) {
-        return res.json({ message: "Quiz has passed" });
-      }
+      // if (now > quizEndDate) {
+      //   return res.json({ message: "Quiz has passed" });
+      // }
     }
 
     res.json({ quiz });
@@ -948,9 +948,10 @@ router.post("/:classId/quizzes/:quizId/responses", async (req, res) => {
     const { student_id, responses } = req.body;
 
     const quiz = await Quiz.findById(quizId);
-    if (!quiz || new Date() < new Date(quiz.start_date) || new Date() > new Date(quiz.start_date.getTime() + quiz.duration * 60000)) {
-      return res.status(403).json({ error: "Forbidden - Quiz has not started or has already passed" });
-    }
+    //for debbuging purposes
+    // if (!quiz || new Date() < new Date(quiz.start_date) || new Date() > new Date(quiz.start_date.getTime() + quiz.duration * 60000)) {
+    //   return res.status(403).json({ error: "Forbidden - Quiz has not started or has already passed" });
+    // }
 
     const allResponses = [];
 
