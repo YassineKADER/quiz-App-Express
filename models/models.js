@@ -61,6 +61,7 @@ const studentResultSchema = new mongoose.Schema({
     quiz_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Quiz' },
     score: { type: Number, required: true },
     submitted_at: { type: Date, default: Date.now },
+    out_of:{type:Number}
 });
 
 const Class = mongoose.model('Class', classSchema);
