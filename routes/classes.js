@@ -972,7 +972,6 @@ router.post("/:classId/quizzes/:quizId/responses", async (req, res) => {
 
     res.json({ message: "Student responses stored successfully" });
   } catch (error) {
-    // Handle errors
     console.error(error);
     res.status(500).json({ error: "Internal Server Error" });
   }
