@@ -893,7 +893,7 @@ router.get("/:classId/quizzes", async (req, res) => {
  * /api/classes/{classId}/quizzes/{quizId}/responses:
  *   post:
  *     summary: Submit responses for a quiz
- *     tags: [Quizzes]
+ *     tags: [Responses]
  *     security:
  *       - BearerAuth: []
  *     parameters:
