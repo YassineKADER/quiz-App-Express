@@ -948,8 +948,7 @@ router.post("/:classId/quizzes/:quizId/responses", async (req, res) => {
     const { student_id, responses } = req.body;
 
     const quiz = await Quiz.findById(quizId);
-
-    if (!quiz || new Date(quiz.start_date) > new Date() || new Date() > new Date(quiz.end_date)) {
+    if (!quiz || new Date(quizStartDate.getTime() + quiz.duration * 60000) > new Date() || new Date() > new Date(quizStartDate.getTime() + quiz.duration * 60000)) {
       return res.status(403).json({ error: "Forbidden - Quiz has not started or has already passed" });
     }
 
