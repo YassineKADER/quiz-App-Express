@@ -3,7 +3,8 @@ const calculateResults = async (
   studentId,
   quizId,
   correctResponses,
-  submittedResponses
+  submittedResponses,
+  numberOfQuestions
 ) => {
   let score = 0;
 
@@ -28,6 +29,7 @@ const calculateResults = async (
     student_id: studentId,
     quiz_id: quizId,
     score,
+    out_of:numberOfQuestions
   });
 
   await studentResult.save();

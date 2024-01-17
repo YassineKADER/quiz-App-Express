@@ -1,7 +1,6 @@
-// Import your models
 const { Class, Teacher, Student, Quiz, StudentResponse, StudentResult} = require("../models/models");
-
-// Express Router
+const calculateAndStoreResults = require("../utils/calculateResult")
+const json2csv = require('json2csv').parse;
 const express = require("express");
 const router = express.Router();
 
@@ -915,15 +914,22 @@ router.get("/:classId/quizzes", async (req, res) => {
  *         application/json:
  *           example:
  *             student_id: "studentId"
- *             responses: [
- *               { question_id: "questionId1", selected_options: ["optionId1", "optionId2"] },
- *               { question_id: "questionId2", selected_options: ["optionId3"] }
- *             ]
+ *             responses:
+ *               - question_id: "questionId1"
+ *                 selected_options: ["optionId1"]
+ *               - question_id: "questionId2"
+ *                 selected_options: ["optionId2"]
  *     responses:
  *       200:
- *         description: Student responses stored successfully
+ *         description: Successful submission of responses
+ *         content:
+ *           application/json:
+ *             example:
+ *               message: "Student responses stored successfully"
+ *               score: 5
+ *               out_of: 10
  *       400:
- *         description: Bad Request - Invalid format for response
+ *         description: Invalid format for response
  *       403:
  *         description: Forbidden - Quiz has not started or has already passed
  *       500:
@@ -961,6 +967,10 @@ router.post("/:classId/quizzes/:quizId/responses", async (req, res) => {
         selected_options,
       });
     }
+    const correctResponses = quiz.questions.map(question => ({
+      question_id: question._id.toString(),
+      selected_options: question.options.filter(option => option.is_correct).map(option => option._id.toString()),
+    }));
 
     const studentResponse = new StudentResponse({
       student_id,
@@ -969,12 +979,254 @@ router.post("/:classId/quizzes/:quizId/responses", async (req, res) => {
     });
 
     await studentResponse.save();
+    const numberOfQuestions = quiz.questions.length;
+    const score = await calculateAndStoreResults(student_id, quizId, correctResponses, responses, numberOfQuestions);
+    
+    res.json({ message: "Student responses stored successfully", score:score, out_of:numberOfQuestions});
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+/**
+ * @swagger
+ * tags:
+ *   name: Results
+ *   description: Results-related endpoints
+ */
+/**
+ * @swagger
+ * /api/classes/{classId}/quizzes/{quizId}/results/{studentId}:
+ *   get:
+ *     summary: Get the result of a student in a quiz
+ *     tags: [Results]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: classId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The ID of the class
+ *       - in: path
+ *         name: quizId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The ID of the quiz
+ *       - in: path
+ *         name: studentId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The ID of the student
+ *     responses:
+ *       200:
+ *         description: Successful retrieval of student's result
+ *         content:
+ *           application/json:
+ *             example:
+ *               score: 5
+ *               out_of: 10
+ *       404:
+ *         description: Student result not found
+ *       500:
+ *         description: Internal Server Error
+ */
 
-    res.json({ message: "Student responses stored successfully" });
+router.get("/:classId/quizzes/:quizId/results/:studentId", async (req, res) => {
+  try {
+    const { quizId, studentId } = req.params;
+    const studentResult = await StudentResult.findOne({ student_id: studentId, quiz_id: quizId });
+
+    if (!studentResult) {
+      return res.status(404).json({ error: "Student result not found" });
+    }
+    res.json({ score: studentResult.score, out_of: studentResult.out_of });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
+router.get("/:classId/quizzes/:quizId/results", async (req, res) => {
+  try {
+    const decoded = req.user;
+
+    if (!decoded || decoded.role !== "teacher") {
+      return res.status(403).json({ error: "Forbidden - Only authenticated teachers can access this endpoint" });
+    }
+
+    const { classId, quizId } = req.params;
+
+    const quiz = await Quiz.findById(quizId);
+
+    if (!quiz) {
+      return res.status(404).json({ error: "Quiz not found" });
+    }
+
+    // Ensure the teacher is the owner of the class
+    if (!quiz.class_id.equals(classId)) {
+      return res.status(403).json({ error: "Forbidden - You are not the teacher of this class" });
+    }
+
+    // Retrieve all student results for the given quiz
+    const results = await StudentResult.find({ quiz_id: quizId }).populate('student_id', 'full_name');
+
+    res.json({ results });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+/**
+ * @swagger
+ * /api/classes/{classId}/quizzes/{quizId}/results:
+ *   get:
+ *     summary: Get results of all students for a quiz in a class
+ *     tags: [Results]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: classId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The ID of the class
+ *       - in: path
+ *         name: quizId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The ID of the quiz
+ *     responses:
+ *       200:
+ *         description: Successful retrieval of student results
+ *         content:
+ *           application/json:
+ *             example:
+ *               results:
+ *                 - student_id: "studentId1"
+ *                   full_name: "John Doe"
+ *                   score: 4
+ *                   submitted_at: "2024-01-25T08:00:00Z"
+ *                 - student_id: "studentId2"
+ *                   full_name: "Jane Doe"
+ *                   score: 5
+ *                   submitted_at: "2024-01-25T08:30:00Z"
+ *               average_score: 4.5
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       403:
+ *         description: Forbidden - User is not authorized to access results
+ *       404:
+ *         description: Class or quiz not found
+ *       500:
+ *         description: Internal Server Error
+ */
+
+router.get("/:classId/quizzes/:quizId/results", async (req, res) => {
+  try {
+    const decoded = req.user;
+
+    if (!decoded || decoded.role !== "teacher") {
+      return res.status(403).json({ error: "Forbidden - Only authenticated teachers can access this endpoint" });
+    }
+
+    const { classId, quizId } = req.params;
+
+    const quiz = await Quiz.findById(quizId);
+
+    if (!quiz) {
+      return res.status(404).json({ error: "Quiz not found" });
+    }
+
+    // Ensure the teacher is the owner of the class
+    if (!quiz.class_id.equals(classId)) {
+      return res.status(403).json({ error: "Forbidden - You are not the teacher of this class" });
+    }
+
+    // Retrieve all student results for the given quiz
+    const results = await StudentResult.find({ quiz_id: quizId }).populate('student_id', 'full_name');
+
+    res.json({ results });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+/**
+ * @swagger
+ * /api/classes/{classId}/quizzes/{quizId}/results/download:
+ *   get:
+ *     summary: Download quiz results in CSV format
+ *     tags: [Quizzes]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: classId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The ID of the class
+ *       - in: path
+ *         name: quizId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The ID of the quiz
+ *     responses:
+ *       200:
+ *         description: Successful download of quiz results in CSV format
+ *         content:
+ *           text/csv:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       403:
+ *         description: Forbidden - Only authenticated teachers can access this endpoint
+ *       404:
+ *         description: Class or quiz not found
+ *       500:
+ *         description: Internal Server Error
+ */
+router.get("/:classId/quizzes/:quizId/results/download", async (req, res) => {
+  try {
+    const decoded = req.user;
+
+    if (!decoded || decoded.role !== "teacher") {
+      return res.status(403).json({ error: "Forbidden - Only authenticated teachers can access this endpoint" });
+    }
+
+    const { classId, quizId } = req.params;
+
+    const quiz = await Quiz.findById(quizId);
+
+    if (!quiz) {
+      return res.status(404).json({ error: "Quiz not found" });
+    }
+
+    // Ensure the teacher is the owner of the class
+    if (!quiz.class_id.equals(classId)) {
+      return res.status(403).json({ error: "Forbidden - You are not the teacher of this class" });
+    }
+
+    // Retrieve all student results for the given quiz
+    const results = await StudentResult.find({ quiz_id: quizId }).populate('student_id', 'full_name score submitted_at');
+
+    // Convert results to CSV format
+    const csvData = json2csv(results, { fields: ['student_id.full_name', 'score', 'submitted_at'] });
+
+    // Set headers for CSV download
+    res.setHeader('Content-Type', 'text/csv');
+    res.attachment(`quiz_results_${quizId}.csv`);
+    res.send(csvData);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
 module.exports = router;
