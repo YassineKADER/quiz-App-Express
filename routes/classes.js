@@ -2,6 +2,8 @@ const { Class, Teacher, Student, Quiz, StudentResponse, StudentResult} = require
 const calculateAndStoreResults = require("../utils/calculateResult")
 const json2csv = require('json2csv').parse;
 const express = require("express");
+const fs = require("fs").promises;
+const path = require('path');
 const router = express.Router();
 
 /**
@@ -1049,37 +1051,6 @@ router.get("/:classId/quizzes/:quizId/results/:studentId", async (req, res) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
-
-router.get("/:classId/quizzes/:quizId/results", async (req, res) => {
-  try {
-    const decoded = req.user;
-
-    if (!decoded || decoded.role !== "teacher") {
-      return res.status(403).json({ error: "Forbidden - Only authenticated teachers can access this endpoint" });
-    }
-
-    const { classId, quizId } = req.params;
-
-    const quiz = await Quiz.findById(quizId);
-
-    if (!quiz) {
-      return res.status(404).json({ error: "Quiz not found" });
-    }
-
-    // Ensure the teacher is the owner of the class
-    if (!quiz.class_id.equals(classId)) {
-      return res.status(403).json({ error: "Forbidden - You are not the teacher of this class" });
-    }
-
-    // Retrieve all student results for the given quiz
-    const results = await StudentResult.find({ quiz_id: quizId }).populate('student_id', 'full_name');
-
-    res.json({ results });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
-});
 /**
  * @swagger
  * /api/classes/{classId}/quizzes/{quizId}/results:
@@ -1108,14 +1079,17 @@ router.get("/:classId/quizzes/:quizId/results", async (req, res) => {
  *           application/json:
  *             example:
  *               results:
- *                 - student_id: "studentId1"
- *                   full_name: "John Doe"
- *                   score: 4
- *                   submitted_at: "2024-01-25T08:00:00Z"
- *                 - student_id: "studentId2"
- *                   full_name: "Jane Doe"
- *                   score: 5
- *                   submitted_at: "2024-01-25T08:30:00Z"
+ *                 - _id: "65a846f86d21746c7aef7ff6"
+ *                   student_id:
+ *                     _id: "65a31695c007a2f91fc20d4e"
+ *                     full_name: "mohsine"
+ *                   quiz_id:
+ *                     _id: "65a7fb166eb1863cbe4c1877"
+ *                     quiz_name: "uml"
+ *                   score: 0
+ *                   out_of: 2
+ *                   submitted_at: "2024-01-17T21:30:32.705Z"
+ *                   __v: 0
  *               average_score: 4.5
  *       401:
  *         description: Unauthorized - Invalid or missing token
@@ -1126,7 +1100,6 @@ router.get("/:classId/quizzes/:quizId/results", async (req, res) => {
  *       500:
  *         description: Internal Server Error
  */
-
 router.get("/:classId/quizzes/:quizId/results", async (req, res) => {
   try {
     const decoded = req.user;
@@ -1149,7 +1122,7 @@ router.get("/:classId/quizzes/:quizId/results", async (req, res) => {
     }
 
     // Retrieve all student results for the given quiz
-    const results = await StudentResult.find({ quiz_id: quizId }).populate('student_id', 'full_name');
+    const results = await StudentResult.find({ quiz_id: quizId }).populate('student_id', 'full_name').populate('quiz_id', 'quiz_name');
 
     res.json({ results });
   } catch (error) {
@@ -1159,7 +1132,7 @@ router.get("/:classId/quizzes/:quizId/results", async (req, res) => {
 });
 /**
  * @swagger
- * /api/classes/{classId}/quizzes/{quizId}/results/download:
+ * /api/classes/{classId}/quizzes/{quizId}/results/csvresults:
  *   get:
  *     summary: Download quiz results in CSV format
  *     tags: [Results]
@@ -1193,7 +1166,7 @@ router.get("/:classId/quizzes/:quizId/results", async (req, res) => {
  *       500:
  *         description: Internal Server Error
  */
-router.get("/:classId/quizzes/:quizId/results/download", async (req, res) => {
+router.get("/:classId/quizzes/:quizId/csvresults", async (req, res) => {
   try {
     const decoded = req.user;
 
@@ -1209,21 +1182,30 @@ router.get("/:classId/quizzes/:quizId/results/download", async (req, res) => {
       return res.status(404).json({ error: "Quiz not found" });
     }
 
-    // Ensure the teacher is the owner of the class
     if (!quiz.class_id.equals(classId)) {
       return res.status(403).json({ error: "Forbidden - You are not the teacher of this class" });
     }
 
-    // Retrieve all student results for the given quiz
-    const results = await StudentResult.find({ quiz_id: quizId }).populate('student_id', 'full_name score submitted_at');
+    const currentclass = await Class.findById(classId);
 
-    // Convert results to CSV format
-    const csvData = json2csv(results, { fields: ['student_id.full_name', 'score', 'submitted_at'] });
-
-    // Set headers for CSV download
-    res.setHeader('Content-Type', 'text/csv');
-    res.attachment(`quiz_results_${quizId}.csv`);
-    res.send(csvData);
+    if (!currentclass) {
+      return res.status(404).json({ error: "Class not found" });
+    }
+    const results = await StudentResult.find({ quiz_id: quizId }).populate('quiz_id', 'quiz_name').populate('student_id', 'full_name');
+    const resultsWithAdditionalInfo = results.map(result => {
+      return {
+        ...result.toObject(),
+        quiz_name: quiz.quiz_name,
+        class_name: currentclass.class_name,
+      };
+    });
+    const csvData = json2csv(resultsWithAdditionalInfo, { fields: ['student_id.full_name', 'submitted_at','score','out_of', 'quiz_name', 'class_name'] });
+    const tempFilePath = path.join(__dirname, '../tmp/results'+quizId+'.csv');
+    await fs.writeFile(tempFilePath, csvData);
+    res.sendFile(tempFilePath, (err) => {
+      // Cleanup: Remove the temporary file after sending
+      fs.unlink(tempFilePath);
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Internal Server Error" });
