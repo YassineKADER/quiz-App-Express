@@ -1364,8 +1364,8 @@ router.delete("/:classId/quizzes/:quizId", async (req, res) => {
       (quiz, index) => {if(quiz._id.toString() === quizId){ quizIndex = index; return;}}
     );
 
-    console.log(existingClass)
-    console.log(quizIndex)
+    // console.log(existingClass)
+    // console.log(quizIndex)
     if (quizIndex === -1) {
       return res.status(404).json({ error: "Quiz not found" });
     }
