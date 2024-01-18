@@ -741,7 +741,7 @@ router.get("/:classId/quizzes/:quizId", async (req, res) => {
       if(!quiz || currentDate < quiz.start_date){
         return res.status(403).json({ error: "Forbidden - Quiz has not started" });
       }
-      const isStudentTakeExam = await studentResponse.findOne({student_id:student_id, quiz_id:quizId});
+      const isStudentTakeExam = await StudentResponse.findOne({student_id:student_id, quiz_id:quizId});
       if(isStudentTakeExam){
         return res.status(403).json({ error: "Forbidden - Student has already taken the Quiz !" });
       }
@@ -949,7 +949,7 @@ router.post("/:classId/quizzes/:quizId/responses", async (req, res) => {
     if(!quiz || currentDate < quiz.start_date){
       return res.status(403).json({ error: "Forbidden - Quiz has not started" });
     }
-    const isStudentTakeExam = await studentResponse.findOne({student_id:student_id, quiz_id:quizId});
+    const isStudentTakeExam = await StudentResponse.findOne({student_id:student_id, quiz_id:quizId});
     if(isStudentTakeExam){
       return res.status(403).json({ error: "Forbidden - Student has already taken the Quiz !" });
     }
