@@ -1276,7 +1276,7 @@ router.delete("/:classId/remove-student", async (req, res) => {
     }
 
     const studentIndex = existingClass.students.indexOf(studentId);
-    
+
     if (studentIndex === -1) {
       return res.status(404).json({ error: "Student not found in the class" });
     }
@@ -1366,12 +1366,16 @@ router.delete("/:classId/quizzes/:quizId", async (req, res) => {
 
     // console.log(existingClass)
     // console.log(quizIndex)
-    if (quizIndex === -1) {
+    const quiz = await Quiz.findById(quizId);
+    if (quizIndex === -1 && !quiz || !quiz) {
       return res.status(404).json({ error: "Quiz not found" });
     }
+    await quiz.deleteOne();
 
-    existingClass.quizzes.splice(quizIndex, 1);
+    if(quizIndex!=-1)
+    {existingClass.quizzes.splice(quizIndex, 1);
     await existingClass.save();
+    }
 
     res.json({ message: "Quiz deleted successfully" });
   } catch (error) {
