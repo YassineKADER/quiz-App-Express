@@ -1276,7 +1276,7 @@ router.delete("/:classId/remove-student", async (req, res) => {
     }
 
     const studentIndex = existingClass.students.indexOf(studentId);
-
+    
     if (studentIndex === -1) {
       return res.status(404).json({ error: "Student not found in the class" });
     }
@@ -1438,7 +1438,7 @@ router.delete("/:classId", async (req, res) => {
         .json({ error: "User is not the teacher of this class" });
     }
 
-    await existingClass.remove();
+    await existingClass.deleteOne();
 
     res.json({ message: "Class deleted successfully" });
   } catch (error) {
