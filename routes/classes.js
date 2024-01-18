@@ -972,13 +972,13 @@ router.post("/:classId/quizzes/:quizId/responses", async (req, res) => {
       selected_options: question.options.filter(option => option.is_correct).map(option => option._id.toString()),
     }));
 
-    const studentResponse = new StudentResponse({
+    const studentResponseinfo = new StudentResponse({
       student_id,
       quiz_id: quizId,
       responses: allResponses,
     });
 
-    await studentResponse.save();
+    await studentResponseinfo.save();
     const numberOfQuestions = quiz.questions.length;
     const score = await calculateAndStoreResults(student_id, quizId, correctResponses, responses, numberOfQuestions);
     
