@@ -652,7 +652,7 @@ router.patch("/:classId/quizzes/:quizId", async (req, res) => {
  *         required: true
  *         description: The ID of the quiz
  *     responses:
- *       200:
+ *       '200':
  *         description: Successful retrieval of quiz details
  *         content:
  *           application/json:
@@ -663,66 +663,31 @@ router.patch("/:classId/quizzes/:quizId", async (req, res) => {
  *                 start_date: "2024-01-20T12:00:00Z"
  *                 duration: 60
  *                 questions: [...]
- *       401:
+ *       '401':
  *         description: Unauthorized - Invalid or missing token
- *       403:
- *         description: Forbidden - Only authenticated users can access this endpoint
- *       404:
+ *         content:
+ *           application/json:
+ *             example:
+ *               error: "Invalid token"
+ *       '403':
+ *         description: Forbidden - Only authenticated users can access this endpoint or user is not authorized to access this quiz
+ *         content:
+ *           application/json:
+ *             example:
+ *               error: "Forbidden - Only authenticated users can access this endpoint" 
+ *       '404':
  *         description: Class or quiz not found
- *       500:
+ *         content:
+ *           application/json:
+ *             example:
+ *               error: "Class not found" 
+ *       '500':
  *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             example:
+ *               error: "Internal Server Error"
  */
-
-// router.get("/:classId/quizzes/:quizId", async (req, res) => {
-//   try {
-//     const decoded = req.user;
-
-//     if (
-//       !decoded ||
-//       (decoded.role !== "teacher" && decoded.role !== "student")
-//     ) {
-//       return res
-//         .status(403)
-//         .json({
-//           error:
-//             "Forbidden - Only authenticated users can access this endpoint",
-//         });
-//     }
-
-//     const { classId, quizId } = req.params;
-
-//     const myClass = await Class.findById(classId);
-
-//     if (!myClass) {
-//       return res.status(404).json({ error: "Class not found" });
-//     }
-
-//     const isTeacherOrStudentInClass =
-//       myClass.teacher_id.equals(decoded.id) ||
-//       myClass.students.includes(decoded.id);
-
-//     if (!isTeacherOrStudentInClass) {
-//       return res
-//         .status(403)
-//         .json({ error: "User is not authorized to access this quiz" });
-//     }
-
-//     const quiz = await Quiz.findById(quizId);
-
-//     if (!quiz) {
-//       return res.status(404).json({ error: "Quiz not found" });
-//     }
-
-//     res.json({ quiz });
-//   } catch (error) {
-//     if (error.name === "JsonWebTokenError") {
-//       return res.status(401).json({ error: "Invalid token" });
-//     }
-//     console.error(error);
-//     res.status(500).json({ error: "Internal Server Error" });
-//   }
-// });
-
 router.get("/:classId/quizzes/:quizId", async (req, res) => {
   try {
     const decoded = req.user;
@@ -762,20 +727,24 @@ router.get("/:classId/quizzes/:quizId", async (req, res) => {
     if (!quiz) {
       return res.status(404).json({ error: "Quiz not found" });
     }
-
-    // If the user is a student, check if the quiz is accessible
     if (decoded.role === "student") {
-      const now = new Date();
-      const quizStartDate = new Date(quiz.start_date);
-      const quizEndDate = new Date(quizStartDate.getTime() + quiz.duration * 60000); // Convert duration to milliseconds
-      //for debugging puposes
-      // if (now < quizStartDate) {
-      //   return res.json({ message: "Quiz has not started yet" });
-      // }
-
-      // if (now > quizEndDate) {
-      //   return res.json({ message: "Quiz has passed" });
-      // }
+      const endDate = new Date();
+      endDate.setMinutes(quiz.start_date.getMinutes() + quiz.duration);
+      const currentDate = new Date();// Convert duration to milliseconds
+      //fixed
+      if(!quiz){
+        return res.status(404).json({ error: "Quiz not found" });
+      }
+      if(!quiz || currentDate > quiz.start_date && currentDate > endDate){
+        return res.status(403).json({ error: "Forbidden - Quiz has already passed" });
+      }
+      if(!quiz || currentDate < quiz.start_date){
+        return res.status(403).json({ error: "Forbidden - Quiz has not started" });
+      }
+      const isStudentTakeExam = await studentResponse.findOne({student_id:student_id, quiz_id:quizId});
+      if(isStudentTakeExam){
+        return res.status(403).json({ error: "Forbidden - Student has already taken the Quiz !" });
+      }
     }
 
     res.json({ quiz });
@@ -922,7 +891,7 @@ router.get("/:classId/quizzes", async (req, res) => {
  *               - question_id: "questionId2"
  *                 selected_options: ["optionId2"]
  *     responses:
- *       200:
+ *       '200':
  *         description: Successful submission of responses
  *         content:
  *           application/json:
@@ -930,14 +899,31 @@ router.get("/:classId/quizzes", async (req, res) => {
  *               message: "Student responses stored successfully"
  *               score: 5
  *               out_of: 10
- *       400:
+ *       '400':
  *         description: Invalid format for response
- *       403:
+ *         content:
+ *           application/json:
+ *             example:
+ *               error: "Invalid format for response"
+ *       '403':
  *         description: Forbidden - Quiz has not started or has already passed
- *       500:
+ *         content:
+ *           application/json:
+ *             example:
+ *               error: "Forbidden - Quiz has not started or has already passed"
+ *       '404':
+ *         description: Quiz not found
+ *         content:
+ *           application/json:
+ *             example:
+ *               error: "Quiz not found"
+ *       '500':
  *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             example:
+ *               error: "Internal Server Error"
  */
-
 router.post("/:classId/quizzes/:quizId/responses", async (req, res) => {
   try {
     const decoded = req.user;
@@ -950,11 +936,23 @@ router.post("/:classId/quizzes/:quizId/responses", async (req, res) => {
     const { student_id, responses } = req.body;
 
     const quiz = await Quiz.findById(quizId);
-    //for debbuging purposes
-    // if (!quiz || new Date() < new Date(quiz.start_date) || new Date() > new Date(quiz.start_date.getTime() + quiz.duration * 60000)) {
-    //   return res.status(403).json({ error: "Forbidden - Quiz has not started or has already passed" });
-    // }
-
+    //fixed
+    const endDate = new Date();
+    endDate.setMinutes(quiz.start_date.getMinutes() + quiz.duration);
+    const currentDate = new Date();
+    if(!quiz){
+      return res.status(404).json({ error: "Quiz not found" });
+    }
+    if(!quiz || currentDate > quiz.start_date && currentDate > endDate){
+      return res.status(403).json({ error: "Forbidden - Quiz has already passed" });
+    }
+    if(!quiz || currentDate < quiz.start_date){
+      return res.status(403).json({ error: "Forbidden - Quiz has not started" });
+    }
+    const isStudentTakeExam = await studentResponse.findOne({student_id:student_id, quiz_id:quizId});
+    if(isStudentTakeExam){
+      return res.status(403).json({ error: "Forbidden - Student has already taken the Quiz !" });
+    }
     const allResponses = [];
 
     for (const response of responses) {
@@ -1211,4 +1209,320 @@ router.get("/:classId/quizzes/:quizId/csvresults", async (req, res) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
+
+/**
+ * @swagger
+ * /api/classes/{classId}/remove-student:
+ *   delete:
+ *     summary: Remove a student from a class (for teachers)
+ *     tags: [Classes]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               studentId:
+ *                 type: string
+ *     parameters:
+ *       - name: classId
+ *         in: path
+ *         required: true
+ *         description: ID of the class
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Successful removal of a student from the class
+ *         content:
+ *           application/json:
+ *             example:
+ *               message: Student removed from the class successfully
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       403:
+ *         description: Forbidden - User is not a teacher
+ *       404:
+ *         description: Class or student not found
+ *       500:
+ *         description: Internal Server Error
+ */
+router.delete("/:classId/remove-student", async (req, res) => {
+  try {
+    const decoded = req.user;
+
+    if (decoded.role !== "teacher") {
+      return res.status(403).json({ error: "User is not a teacher" });
+    }
+
+    const { classId } = req.params;
+    const { studentId } = req.body;
+
+    const existingClass = await Class.findById(classId);
+
+    if (!existingClass) {
+      return res.status(404).json({ error: "Class not found" });
+    }
+
+    const isTeacherOfClass = existingClass.teacher_id.equals(decoded.id);
+
+    if (!isTeacherOfClass) {
+      return res
+        .status(403)
+        .json({ error: "User is not the teacher of this class" });
+    }
+
+    const studentIndex = existingClass.students.indexOf(studentId);
+
+    if (studentIndex === -1) {
+      return res.status(404).json({ error: "Student not found in the class" });
+    }
+
+    existingClass.students.splice(studentIndex, 1);
+    await existingClass.save();
+
+    res.json({ message: "Student removed from the class successfully" });
+  } catch (error) {
+    if (error.name === "JsonWebTokenError") {
+      return res.status(401).json({ error: "Invalid token" });
+    }
+    console.error(error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+/**
+ * @swagger
+ * /api/classes/{classId}/quizzes/{quizId}:
+ *   delete:
+ *     summary: Delete a quiz in a class (for teachers)
+ *     tags: [Quizzes]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: classId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The ID of the class
+ *       - in: path
+ *         name: quizId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The ID of the quiz
+ *     responses:
+ *       200:
+ *         description: Successful deletion of a quiz
+ *         content:
+ *           application/json:
+ *             example:
+ *               message: Quiz deleted successfully
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       403:
+ *         description: Forbidden - User is not a teacher
+ *       404:
+ *         description: Class or quiz not found
+ *       500:
+ *         description: Internal Server Error
+ */
+router.delete("/:classId/quizzes/:quizId", async (req, res) => {
+  try {
+    const decoded = req.user;
+
+    if (decoded.role !== "teacher") {
+      return res.status(403).json({ error: "User is not a teacher" });
+    }
+
+    const { classId, quizId } = req.params;
+
+    const existingClass = await Class.findById(classId);
+
+    if (!existingClass) {
+      return res.status(404).json({ error: "Class not found" });
+    }
+
+    const isTeacherOfClass = existingClass.teacher_id.equals(decoded.id);
+
+    if (!isTeacherOfClass) {
+      return res
+        .status(403)
+        .json({ error: "User is not the teacher of this class" });
+    }
+
+    const quizIndex = existingClass.quizzes.findIndex(
+      (quiz) => quiz._id.equals(quizId)
+    );
+
+    if (quizIndex === -1) {
+      return res.status(404).json({ error: "Quiz not found" });
+    }
+
+    existingClass.quizzes.splice(quizIndex, 1);
+    await existingClass.save();
+
+    res.json({ message: "Quiz deleted successfully" });
+  } catch (error) {
+    if (error.name === "JsonWebTokenError") {
+      return res.status(401).json({ error: "Invalid token" });
+    }
+    console.error(error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+/**
+ * @swagger
+ * /api/classes/{classId}:
+ *   delete:
+ *     summary: Delete a class (for teachers)
+ *     tags: [Classes]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: classId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The ID of the class
+ *     responses:
+ *       200:
+ *         description: Successful deletion of a class
+ *         content:
+ *           application/json:
+ *             example:
+ *               message: Class deleted successfully
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       403:
+ *         description: Forbidden - User is not a teacher
+ *       404:
+ *         description: Class not found
+ *       500:
+ *         description: Internal Server Error
+ */
+router.delete("/:classId", async (req, res) => {
+  try {
+    const decoded = req.user;
+
+    if (decoded.role !== "teacher") {
+      return res.status(403).json({ error: "User is not a teacher" });
+    }
+
+    const { classId } = req.params;
+
+    const existingClass = await Class.findById(classId);
+
+    if (!existingClass) {
+      return res.status(404).json({ error: "Class not found" });
+    }
+
+    const isTeacherOfClass = existingClass.teacher_id.equals(decoded.id);
+
+    if (!isTeacherOfClass) {
+      return res
+        .status(403)
+        .json({ error: "User is not the teacher of this class" });
+    }
+
+    await existingClass.remove();
+
+    res.json({ message: "Class deleted successfully" });
+  } catch (error) {
+    if (error.name === "JsonWebTokenError") {
+      return res.status(401).json({ error: "Invalid token" });
+    }
+    console.error(error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+/**
+ * @swagger
+ * /api/classes/{classId}:
+ *   patch:
+ *     summary: Update class details (for teachers)
+ *     tags: [Classes]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: classId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The ID of the class
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Successful update of class details
+ *         content:
+ *           application/json:
+ *             example:
+ *               message: Class details updated successfully
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       403:
+ *         description: Forbidden - User is not a teacher
+ *       404:
+ *         description: Class not found
+ *       500:
+ *         description: Internal Server Error
+ */
+router.patch("/:classId", async (req, res) => {
+  try {
+    const decoded = req.user;
+
+    if (decoded.role !== "teacher") {
+      return res.status(403).json({ error: "User is not a teacher" });
+    }
+
+    const { classId } = req.params;
+    const { name, description } = req.body;
+
+    const existingClass = await Class.findById(classId);
+
+    if (!existingClass) {
+      return res.status(404).json({ error: "Class not found" });
+    }
+
+    const isTeacherOfClass = existingClass.teacher_id.equals(decoded.id);
+
+    if (!isTeacherOfClass) {
+      return res
+        .status(403)
+        .json({ error: "User is not the teacher of this class" });
+    }
+
+    if (name) existingClass.name = name;
+    if (description) existingClass.description = description;
+
+    await existingClass.save();
+
+    res.json({ message: "Class details updated successfully" });
+  } catch (error) {
+    if (error.name === "JsonWebTokenError") {
+      return res.status(401).json({ error: "Invalid token" });
+    }
+    console.error(error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
 module.exports = router;
