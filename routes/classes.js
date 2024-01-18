@@ -1355,10 +1355,17 @@ router.delete("/:classId/quizzes/:quizId", async (req, res) => {
         .json({ error: "User is not the teacher of this class" });
     }
 
-    const quizIndex = existingClass.quizzes.findIndex(
-      (quiz) => quiz._id.equals(quizId)
+    //  = existingClass.quizzes.findIndex(
+    //   (quiz) => {quiz._id.toString() === quizId}
+    // );
+
+    let quizIndex = -1; 
+    existingClass.quizzes.forEach(
+      (quiz, index) => {if(quiz._id.toString() === quizId){ quizIndex = index; return;}}
     );
 
+    console.log(existingClass)
+    console.log(quizIndex)
     if (quizIndex === -1) {
       return res.status(404).json({ error: "Quiz not found" });
     }
