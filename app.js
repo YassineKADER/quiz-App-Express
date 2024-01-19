@@ -39,7 +39,9 @@ app.use(cors())
 app.use('/api/user', usersRouter);
 app.use('/api/classes', auth, classesRouter)
 app.use('/api-docs', swagger.serve, swagger.setup);
-
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, './public', 'index.html'));
+});
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
   next(createError(404));
