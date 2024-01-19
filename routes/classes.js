@@ -811,7 +811,7 @@ router.get("/:classId/quizzes", async (req, res) => {
     }
 
     const { classId } = req.params;
-    console.log(req.params)
+    // console.log(req.params)
 
     const myClass = await Class.findById(classId);
 
@@ -830,7 +830,7 @@ router.get("/:classId/quizzes", async (req, res) => {
     }
 
     const quizzes = await Quiz.find({ class_id: classId });
-    console.log(quizzes);
+    // console.log(quizzes);
 
     const formattedQuizzes = quizzes.map((quiz) => ({
       quiz_name: quiz.quiz_name,
@@ -1193,7 +1193,7 @@ router.get("/:classId/quizzes/:quizId/csvresults", async (req, res) => {
         class_name: currentclass.class_name,
       };
     });
-    console.log(resultsWithAdditionalInfo);
+    // console.log(resultsWithAdditionalInfo);
     const csvData = json2csv(resultsWithAdditionalInfo, { fields: [{ label: 'full_name', value: 'student_id.full_name'}, 'submitted_at','score','out_of', 'quiz_name', 'class_name'] });
     res.setHeader('Content-Type', 'text/csv');
     res.attachment(`quiz_results_${quizId}.csv`);

@@ -6,11 +6,11 @@ const options = {
         openapi: '3.0.0',
         info: {
             title: 'Quiz API',
-            version: '1.0.0',
+            version: '1.3.1',
             description: 'API for the Quiz app',
         },
     },
-    apis: ["./routes/*.js"], // Path to your route files
+    apis: ["./routes/*.js"],
 };
 
 const swaggerSpec = swaggerJSDoc(options);
