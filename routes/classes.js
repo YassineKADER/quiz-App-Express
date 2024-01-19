@@ -2,8 +2,6 @@ const { Class, Teacher, Student, Quiz, StudentResponse, StudentResult} = require
 const calculateAndStoreResults = require("../utils/calculateResult")
 const json2csv = require('json2csv').parse;
 const express = require("express");
-const fs = require("fs").promises;
-const path = require('path');
 const router = express.Router();
 
 /**
@@ -1130,7 +1128,7 @@ router.get("/:classId/quizzes/:quizId/results", async (req, res) => {
 });
 /**
  * @swagger
- * /api/classes/{classId}/quizzes/{quizId}/results/csvresults:
+ * /api/classes/{classId}/quizzes/{quizId}/csvresults:
  *   get:
  *     summary: Download quiz results in CSV format
  *     tags: [Results]
@@ -1171,9 +1169,7 @@ router.get("/:classId/quizzes/:quizId/csvresults", async (req, res) => {
     if (!decoded || decoded.role !== "teacher") {
       return res.status(403).json({ error: "Forbidden - Only authenticated teachers can access this endpoint" });
     }
-
     const { classId, quizId } = req.params;
-
     const quiz = await Quiz.findById(quizId);
 
     if (!quiz) {
@@ -1197,13 +1193,11 @@ router.get("/:classId/quizzes/:quizId/csvresults", async (req, res) => {
         class_name: currentclass.class_name,
       };
     });
-    const csvData = json2csv(resultsWithAdditionalInfo, { fields: ['student_id.full_name', 'submitted_at','score','out_of', 'quiz_name', 'class_name'] });
-    const tempFilePath = path.join(__dirname, '../tmp/results'+quizId+'.csv');
-    await fs.writeFile(tempFilePath, csvData);
-    res.sendFile(tempFilePath, (err) => {
-      // Cleanup: Remove the temporary file after sending
-      fs.unlink(tempFilePath);
-    });
+    console.log(resultsWithAdditionalInfo);
+    const csvData = json2csv(resultsWithAdditionalInfo, { fields: [{ label: 'full_name', value: 'student_id.full_name'}, 'submitted_at','score','out_of', 'quiz_name', 'class_name'] });
+    res.setHeader('Content-Type', 'text/csv');
+    res.attachment(`quiz_results_${quizId}.csv`);
+    res.send(csvData);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Internal Server Error" });
