@@ -1,35 +1,25 @@
 const mongoose = require('mongoose');
-
-
 const teacherSchema = new mongoose.Schema({
     username: { type: String, required: true },
     password: { type: String, required: true },
     full_name: { type: String, required: true },
     email: { type: String, required: true, match: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/ },
 });
-
 const studentSchema = new mongoose.Schema({
     username: { type: String, required: true },
     password: { type: String, required: true },
     full_name: { type: String, required: true },
     email: { type: String, required: true, unique: true, match: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/ },
 });
-
-
-
-
-
 const optionSchema = new mongoose.Schema({
     option_text: { type: String, required: true },
     is_correct: { type: Boolean, required: true },
 });
-
 const questionSchema = new mongoose.Schema({
     question_text: { type: String, required: true },
     options: [optionSchema],
     is_multiple_choice: { type: Boolean, default: false }
 });
-
 const quizSchema = new mongoose.Schema({
     quiz_name: { type: String},
     class_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Class'},
@@ -37,7 +27,6 @@ const quizSchema = new mongoose.Schema({
     duration: { type: Number},
     questions: [questionSchema]
 });
-
 const classSchema = new mongoose.Schema({
     class_name: { type: String, required: true },
     teacher_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Teacher', required: true },

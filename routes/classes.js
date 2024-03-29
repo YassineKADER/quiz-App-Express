@@ -1493,33 +1493,24 @@ router.delete("/:classId", async (req, res) => {
 router.patch("/:classId", async (req, res) => {
   try {
     const decoded = req.user;
-
     if (decoded.role !== "teacher") {
       return res.status(403).json({ error: "User is not a teacher" });
     }
-
     const { classId } = req.params;
     const { name, description } = req.body;
-
     const existingClass = await Class.findById(classId);
-
     if (!existingClass) {
       return res.status(404).json({ error: "Class not found" });
     }
-
     const isTeacherOfClass = existingClass.teacher_id.equals(decoded.id);
-
     if (!isTeacherOfClass) {
       return res
         .status(403)
         .json({ error: "User is not the teacher of this class" });
     }
-
     if (name) existingClass.name = name;
     if (description) existingClass.description = description;
-
     await existingClass.save();
-
     res.json({ message: "Class details updated successfully" });
   } catch (error) {
     if (error.name === "JsonWebTokenError") {
@@ -1529,5 +1520,4 @@ router.patch("/:classId", async (req, res) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
-
 module.exports = router;
